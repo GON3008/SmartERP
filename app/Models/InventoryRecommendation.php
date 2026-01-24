@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class InventoryRecommendation extends Model
 {
+    use HasFactory;
     protected $fillable = [
         "product_id",
         "avg_daily_sales",
