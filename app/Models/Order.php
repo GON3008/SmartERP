@@ -13,6 +13,16 @@ class Order extends Model
         "status",
         "total_amount"
     ];
+
+    public function customer ()
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function orders ()
+    {
+        return $this->hasMany(OrderItem::class);
+    }
 }
 
 
