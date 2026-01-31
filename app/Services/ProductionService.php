@@ -41,6 +41,14 @@ class ProductionService
     }
 
     /**
+     * Get production order by ID
+     */
+    public function getProductionOrderById(int $id): ProductionOrder
+    {
+        return ProductionOrder::with(['product', 'logs'])->findOrFail($id);
+    }
+
+    /**
      * Create production order
      */
     public function createProductionOrder(array $data): ProductionOrder
@@ -62,6 +70,59 @@ class ProductionService
             ]);
 
             return $order->load('product');
+        });
+    }
+
+    /**
+     * Update production order
+     */
+    public function updateProductionOrder(int $id, array $data): ProductionOrder
+    {
+        return DB::transaction(function () use ($id, $data) {
+            $order = ProductionOrder::findOrFail($id);
+
+            // Prevent updating completed orders
+            if ($order->status === 'completed') {
+                throw new \Exception('Không thể cập nhật lệnh sản xuất đã hoàn thành!');
+            }
+
+            // Prevent updating cancelled orders
+            if ($order->status === 'cancelled') {
+                throw new \Exception('Không thể cập nhật lệnh sản xuất đã hủy!');
+            }
+
+            // If changing product, check BOM exists
+            if (isset($data['product_id']) && $data['product_id'] !== $order->product_id) {
+                $hasBOM = BillOfMaterial::where('product_id', $data['product_id'])->exists();
+                if (!$hasBOM) {
+                    throw new \Exception('Sản phẩm mới chưa có công thức sản xuất (BOM)!');
+                }
+            }
+
+            // Prevent changing to in_progress without start_date
+            if (isset($data['status']) && $data['status'] === 'in_progress') {
+                if (empty($data['start_date']) && !$order->start_date) {
+                    $data['start_date'] = now();
+                }
+            }
+
+            // Prevent changing to completed without end_date
+            if (isset($data['status']) && $data['status'] === 'completed') {
+                if (empty($data['end_date'])) {
+                    $data['end_date'] = now();
+                }
+            }
+
+            // Update order
+            $order->update($data);
+
+            // Add log
+            ProductionLog::create([
+                'production_order_id' => $order->id,
+                'note' => 'Lệnh sản xuất được cập nhật',
+            ]);
+
+            return $order->fresh(['product', 'logs']);
         });
     }
 
@@ -202,6 +263,24 @@ class ProductionService
         ]);
 
         return $order->fresh(['product', 'logs']);
+    }
+
+    /**
+     * Delete production order
+     */
+    public function deleteProductionOrder(int $id): bool
+    {
+        $order = ProductionOrder::findOrFail($id);
+
+        // Only allow deleting pending or cancelled orders
+        if (!in_array($order->status, ['pending', 'cancelled'])) {
+            throw new \Exception('Chỉ có thể xóa lệnh sản xuất đang chờ hoặc đã hủy!');
+        }
+
+        return DB::transaction(function () use ($order) {
+            $order->logs()->delete();
+            return $order->delete();
+        });
     }
 
     /**
