@@ -14,7 +14,7 @@ class AuthService
     /**
      * Register new user
      */
-    public function register(array $data): User
+    public function register(array $data): array
     {
         $user = User::create([
             'name' => $data['name'],
@@ -37,7 +37,14 @@ class AuthService
         // Fire registered event (for email verification)
         event(new Registered($user));
 
-        return $user->load('roles');
+        // Create token
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        return [
+            'user' => $user->load('roles'),
+            'token' => $token,
+            'message' => 'Đăng ký thành công!'
+        ];
     }
 
     /**
@@ -60,8 +67,8 @@ class AuthService
             ]);
         }
 
-        // Attempt login
-        if (!Auth::attempt($credentials, $remember)) {
+        // Verify password
+        if (!Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Thông tin đăng nhập không chính xác.'],
             ]);
@@ -70,25 +77,38 @@ class AuthService
         // Update last login
         $user->update(['last_login_at' => now()]);
 
-        // Create token for API (if using Sanctum)
-        // $token = $user->createToken('auth_token')->plainTextToken;
+        // Revoke old tokens (optional - uncomment if you want to allow only 1 active session)
+        // $user->tokens()->delete();
+
+        // Create new token
+        $token = $user->createToken('auth_token')->plainTextToken;
 
         return [
             'user' => $user->load('roles.permissions'),
+            'token' => $token,
             'message' => 'Đăng nhập thành công!',
-            // 'token' => $token, // Uncomment if using API tokens
         ];
     }
 
     /**
-     * Logout user
+     * Logout user (Revoke all tokens)
      */
     public function logout(): void
     {
-        // Revoke all tokens (if using Sanctum)
-        // Auth::user()->tokens()->delete();
+        // Revoke all tokens
+        Auth::user()->tokens()->delete();
+    }
 
-        Auth::logout();
+    /**
+     * Logout from current device only
+     */
+    public function logoutCurrentDevice(): void
+    {
+        // Revoke current token only
+        $token = Auth::user()->currentAccessToken();
+        if ($token) {
+            $token->delete();
+        }
     }
 
     /**
@@ -96,7 +116,6 @@ class AuthService
      */
     public function getAuthenticatedUser()
     {
-
         return Auth::user()->load('roles.permissions', 'employee');
     }
 
@@ -116,6 +135,9 @@ class AuthService
         $user->update([
             'password' => Hash::make($newPassword),
         ]);
+
+        // Revoke all tokens after password change (security)
+        $user->tokens()->delete();
 
         return true;
     }
@@ -147,6 +169,9 @@ class AuthService
                 $user->forceFill([
                     'password' => Hash::make($password)
                 ])->save();
+
+                // Revoke all tokens after password reset
+                $user->tokens()->delete();
             }
         );
 
@@ -214,5 +239,32 @@ class AuthService
         }
 
         return array_unique($permissions);
+    }
+
+    /**
+     * Get user's active tokens
+     */
+    public function getActiveTokens(User $user)
+    {
+        return $user->tokens;
+    }
+
+    /**
+     * Revoke specific token
+     */
+    public function revokeToken(User $user, int $tokenId): bool
+    {
+        return $user->tokens()->where('id', $tokenId)->delete();
+    }
+
+    /**
+     * Revoke all tokens except current
+     */
+    public function revokeAllTokensExceptCurrent(): void
+    {
+        $user = Auth::user();
+        $currentTokenId = $user->currentAccessToken()->id;
+
+        $user->tokens()->where('id', '!=', $currentTokenId)->delete();
     }
 }
