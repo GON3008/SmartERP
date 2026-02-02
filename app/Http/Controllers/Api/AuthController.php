@@ -8,6 +8,7 @@ use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\User\StoreUserRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 use PhpParser\Node\Expr\FuncCall;
 
 class AuthController extends Controller
@@ -54,9 +55,33 @@ class AuthController extends Controller
             return response()->json($result);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => $e->getMessage(),
-            ], 422);
+                'message' => $e->getMessage()
+            ], 401);
         }
+    }
+
+    /**
+     * Logout user (revoke all tokens)
+     */
+    public function logout(): JsonResponse
+    {
+        $this->authService->logout();
+
+        return response()->json([
+            'message' => 'Đăng xuất thành công!'
+        ]);
+    }
+
+    /**
+     * Logout current device only
+     */
+    public function logoutCurrentDevice(): JsonResponse
+    {
+        $this->authService->logoutCurrentDevice();
+
+        return response()->json([
+            'message' => 'Đã đăng xuất khỏi thiết bị này!'
+        ]);
     }
 
     /**
@@ -76,6 +101,33 @@ class AuthController extends Controller
      * Change password
      */
 
+    // public function changePassword(Request $request): JsonResponse
+    // {
+    //     $request->validate([
+    //         'current_password' => 'required|string',
+    //         'new_password' => 'required|string|min:8|confirmed',
+    //     ]);
+
+    //     try {
+    //         $this->authService->changePassword(
+    //             $request->user(),
+    //             $request->current_password,
+    //             $request->new_password
+    //         );
+
+    //         return response()->json([
+    //             'message' => 'Đổi mật khẩu thành công!',
+    //         ]);
+    //     } catch (\Exception $e) {
+    //         return response()->json([
+    //             'message' => $e->getMessage(),
+    //         ], 422);
+    //     }
+    // }
+
+    /**
+     * Change password
+     */
     public function changePassword(Request $request): JsonResponse
     {
         $request->validate([
@@ -91,14 +143,108 @@ class AuthController extends Controller
             );
 
             return response()->json([
-                'message' => 'Đổi mật khẩu thành công!',
+                'message' => 'Đổi mật khẩu thành công! Tất cả tokens đã bị thu hồi.'
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' => $e->getMessage()
             ], 422);
         }
     }
+
+    /**
+     * Refresh token
+     */
+    public function refreshToken(): JsonResponse
+    {
+        try {
+            $result = $this->authService->refreshToken();
+
+            return response()->json($result);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Làm mới token thất bại: ' . $e->getMessage()
+            ], 422);
+        }
+    }
+
+    /**
+     * Get current token info
+     */
+    public function tokenInfo(): JsonResponse
+    {
+        $info = $this->authService->getTokenInfo();
+
+        return response()->json([
+            'data' => $info
+        ]);
+    }
+
+    /**
+     * Get all active tokens
+     */
+    public function activeTokens(): JsonResponse
+    {
+        $user = Auth::user();
+        $tokens = $this->authService->getActiveTokens($user);
+
+        return response()->json([
+            'data' => $tokens->map(function ($token) {
+                return [
+                    'id' => $token->id,
+                    'name' => $token->name,
+                    'abilities' => $token->abilities,
+                    'created_at' => $token->created_at->toISOString(),
+                    'expires_at' => $token->expires_at
+                        ? \Carbon\Carbon::parse($token->expires_at)->toISOString()
+                        : null,
+                    'is_current' => $token->id == Auth::user()->currentAccessToken()->id,
+                ];
+            })
+        ]);
+    }
+
+    /**
+     * Revoke specific token
+     */
+    public function revokeToken(Request $request): JsonResponse
+    {
+        $request->validate([
+            'token_id' => 'required|integer'
+        ]);
+
+        try {
+            $user = Auth::user();
+            $result = $this->authService->revokeToken($user, $request->token_id);
+
+            if ($result) {
+                return response()->json([
+                    'message' => 'Token đã được thu hồi!'
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Token không tồn tại!'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Lỗi: ' . $e->getMessage()
+            ], 422);
+        }
+    }
+
+    /**
+     * Revoke all tokens except current
+     */
+    public function revokeOtherTokens(): JsonResponse
+    {
+        $this->authService->revokeAllTokensExceptCurrent();
+
+        return response()->json([
+            'message' => 'Đã thu hồi tất cả tokens khác!'
+        ]);
+    }
+
 
     /**
      * Send password reset link
@@ -128,25 +274,22 @@ class AuthController extends Controller
     public function resetPassword(Request $request): JsonResponse
     {
         $request->validate([
-            'token' => 'required|string',
+            'token' => 'required',
             'email' => 'required|email',
             'password' => 'required|min:8|confirmed',
         ]);
 
         try {
             $message = $this->authService->resetPassword($request->only(
-                'email',
-                'token',
-                'password',
-                'password_confirmation',
+                'email', 'password', 'password_confirmation', 'token'
             ));
 
             return response()->json([
-                'message' => $message,
+                'message' => $message
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => $e->getMessage(),
+                'message' => $e->getMessage()
             ], 422);
         }
     }

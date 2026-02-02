@@ -23,23 +23,35 @@ use App\Http\Controllers\Api\NotificationController;
 |--------------------------------------------------------------------------
 */
 
-// ==================== PUBLIC ROUTES ====================
+// ==================== AUTH ROUTES ====================
 Route::prefix('auth')->group(function () {
+    // Public routes
     Route::post('register', [AuthController::class, 'register']);
     Route::post('login', [AuthController::class, 'login']);
     Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
+
+    // Protected routes - Cần authentication
+    Route::middleware(['auth:sanctum'])->group(function () {
+        // User info & logout
+        Route::get('me', [AuthController::class, 'me']);
+        Route::post('logout', [AuthController::class, 'logout']);
+        Route::post('logout-current-device', [AuthController::class, 'logoutCurrentDevice']);
+        Route::post('change-password', [AuthController::class, 'changePassword']);
+
+        // Token management
+        Route::prefix('tokens')->group(function () {
+            Route::get('/', [AuthController::class, 'activeTokens']);
+            Route::get('info', [AuthController::class, 'tokenInfo']);
+            Route::post('refresh', [AuthController::class, 'refreshToken']);
+            Route::delete('{tokenId}', [AuthController::class, 'revokeToken']);
+            Route::delete('/', [AuthController::class, 'revokeOtherTokens']);
+        });
+    });
 });
 
 // ==================== PROTECTED ROUTES ====================
 Route::middleware(['auth:sanctum'])->group(function () {
-
-    // ==================== AUTH ROUTES ====================
-    Route::prefix('auth')->group(function () {
-        Route::post('logout', [AuthController::class, 'logout']);
-        Route::get('me', [AuthController::class, 'me']);
-        Route::post('change-password', [AuthController::class, 'changePassword']);
-    });
 
     // ==================== USER MANAGEMENT ====================
     Route::prefix('users')->group(function () {
@@ -186,11 +198,12 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('inventory-movement', [ReportController::class, 'inventoryMovement']);
         Route::get('customers', [ReportController::class, 'customers']);
         Route::get('production-efficiency', [ReportController::class, 'productionEfficiency']);
-        Route::get('financial-summary', [ReportController::class, 'financialSummary'])->middleware('role:Super Admin,Admin,Accountant');
+        Route::get('financial-summary', [ReportController::class, 'financialSummary'])
+            ->middleware('role:Super Admin,Admin,Accountant');
     });
 
     // ==================== NOTIFICATIONS ====================
-    Route::prefix('notifications')->middleware('permission:view.dashboard')->group(function () {
+    Route::prefix('notifications')->group(function () {
         Route::get('/', [NotificationController::class, 'index']);
         Route::get('count', [NotificationController::class, 'count']);
         Route::get('low-stock', [NotificationController::class, 'lowStock']);

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
 
 class AuthService
 {
@@ -24,25 +25,21 @@ class AuthService
         ]);
 
         // Assign default role
-        if (!empty($data['role_ids'])) {
-            $user->roles()->attach($data['role_ids']);
-        } else {
-            // Assign default "Viewer" role
-            $viewerRole = \App\Models\Role::where('name', 'Viewer')->first();
-            if ($viewerRole) {
-                $user->roles()->attach($viewerRole->id);
-            }
+        $viewerRole = \App\Models\Role::where('name', 'Viewer')->first();
+        if ($viewerRole) {
+            $user->roles()->attach($viewerRole->id);
         }
 
-        // Fire registered event (for email verification)
-        event(new Registered($user));
-
-        // Create token
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // Create token with expiration
+        $expiresAt = $this->getTokenExpiresAt();
+        $tokenResult = $user->createToken('auth_token', ['*'], $expiresAt);
 
         return [
             'user' => $user->load('roles'),
-            'token' => $token,
+            'token' => $tokenResult->plainTextToken,
+            'token_type' => 'Bearer',
+            'expires_at' => $expiresAt ? $expiresAt->toISOString() : null,
+            'expires_in' => $expiresAt ? $expiresAt->diffInSeconds(now()) : null, // seconds
             'message' => 'Đăng ký thành công!'
         ];
     }
@@ -52,7 +49,6 @@ class AuthService
      */
     public function login(array $credentials, bool $remember = false): array
     {
-        // Check if user exists and is active
         $user = User::where('email', $credentials['email'])->first();
 
         if (!$user) {
@@ -67,7 +63,6 @@ class AuthService
             ]);
         }
 
-        // Verify password
         if (!Hash::check($credentials['password'], $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Thông tin đăng nhập không chính xác.'],
@@ -77,15 +72,16 @@ class AuthService
         // Update last login
         $user->update(['last_login_at' => now()]);
 
-        // Revoke old tokens (optional - uncomment if you want to allow only 1 active session)
-        // $user->tokens()->delete();
-
-        // Create new token
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // Create token with expiration
+        $expiresAt = $remember ? $this->getTokenExpiresAt(30) : $this->getTokenExpiresAt(); // 30 days if remember
+        $tokenResult = $user->createToken('auth_token', ['*'], $expiresAt);
 
         return [
             'user' => $user->load('roles.permissions'),
-            'token' => $token,
+            'token' => $tokenResult->plainTextToken,
+            'token_type' => 'Bearer',
+            'expires_at' => $expiresAt ? $expiresAt->toISOString() : null,
+            'expires_in' => $expiresAt ? $expiresAt->diffInSeconds(now()) : null, // seconds
             'message' => 'Đăng nhập thành công!',
         ];
     }
@@ -95,8 +91,12 @@ class AuthService
      */
     public function logout(): void
     {
-        // Revoke all tokens
-        Auth::user()->tokens()->delete();
+        $user = Auth::user();
+
+        if ($user) {
+            // Revoke all tokens
+            $user->tokens()->delete();
+        }
     }
 
     /**
@@ -104,10 +104,16 @@ class AuthService
      */
     public function logoutCurrentDevice(): void
     {
-        // Revoke current token only
-        $token = Auth::user()->currentAccessToken();
-        if ($token) {
-            $token->delete();
+        $user = Auth::user();
+
+        if ($user) {
+            // Get current token
+            $currentToken = $user->currentAccessToken();
+
+            if ($currentToken) {
+                // Revoke current token only
+                $user->tokens()->where('id', $currentToken->id)->delete();
+            }
         }
     }
 
@@ -246,7 +252,7 @@ class AuthService
      */
     public function getActiveTokens(User $user)
     {
-        return $user->tokens;
+        return $user->tokens()->get();
     }
 
     /**
@@ -254,7 +260,7 @@ class AuthService
      */
     public function revokeToken(User $user, int $tokenId): bool
     {
-        return $user->tokens()->where('id', $tokenId)->delete();
+        return $user->tokens()->where('id', $tokenId)->delete() > 0;
     }
 
     /**
@@ -263,8 +269,108 @@ class AuthService
     public function revokeAllTokensExceptCurrent(): void
     {
         $user = Auth::user();
-        $currentTokenId = $user->currentAccessToken()->id;
 
-        $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+        if ($user) {
+            $currentToken = $user->currentAccessToken();
+
+            if ($currentToken) {
+                $currentTokenId = $currentToken->id;
+                $user->tokens()->where('id', '!=', $currentTokenId)->delete();
+            }
+        }
+    }
+
+    /**
+     * Get token expiration time
+     *
+     * @param int|null $days Number of days (override config)
+     * @return \Carbon\Carbon|null
+     */
+    private function getTokenExpiresAt(?int $days = null): ?Carbon
+    {
+        if ($days !== null) {
+            return Carbon::now()->addDays($days);
+        }
+
+        $expirationMinutes = config('sanctum.expiration');
+
+        if ($expirationMinutes === null) {
+            return null; // No expiration
+        }
+
+        return Carbon::now()->addMinutes((int) $expirationMinutes);
+    }
+
+    /**
+     * Refresh token (revoke old, create new)
+     */
+    public function refreshToken(): array
+    {
+        $user = Auth::user();
+
+        // Revoke current token
+        $currentToken = $user->currentAccessToken();
+        if ($currentToken) {
+            $user->tokens()->where('id', $currentToken->id)->delete();
+        }
+
+        // Create new token
+        $expiresAt = $this->getTokenExpiresAt();
+        $tokenResult = $user->createToken('auth_token', ['*'], $expiresAt);
+
+        return [
+            'token' => $tokenResult->plainTextToken,
+            'token_type' => 'Bearer',
+            'expires_at' => $expiresAt ? $expiresAt->toISOString() : null,
+            'expires_in' => $expiresAt ? $expiresAt->diffInSeconds(now()) : null,
+            'message' => 'Token đã được làm mới!',
+        ];
+    }
+
+    /**
+     * Get current token info
+     */
+    public function getTokenInfo(): array
+    {
+        $user = Auth::user();
+        $currentToken = $user->currentAccessToken();
+
+        if (!$currentToken) {
+            return [
+                'valid' => false,
+                'message' => 'No active token'
+            ];
+        }
+
+        $expiresAt = $currentToken->expires_at;
+        $isExpired = $expiresAt ? Carbon::parse($expiresAt)->isPast() : false;
+
+        return [
+            'valid' => !$isExpired,
+            'token_id' => $currentToken->id,
+            'name' => $currentToken->name,
+            'abilities' => $currentToken->abilities,
+            'created_at' => $currentToken->created_at->toISOString(),
+            'expires_at' => $expiresAt ? Carbon::parse($expiresAt)->toISOString() : null,
+            'is_expired' => $isExpired,
+            'time_remaining' => $expiresAt && !$isExpired
+                ? Carbon::parse($expiresAt)->diffForHumans()
+                : null,
+        ];
+    }
+
+    /**
+     * Check if token is expired
+     */
+    public function isTokenExpired(): bool
+    {
+        $user = Auth::user();
+        $currentToken = $user->currentAccessToken();
+
+        if (!$currentToken || !$currentToken->expires_at) {
+            return false; // No expiration
+        }
+
+        return Carbon::parse($currentToken->expires_at)->isPast();
     }
 }
