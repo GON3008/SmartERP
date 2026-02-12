@@ -42,4 +42,9 @@ class Product extends Model
     {
         return $this->hasMany(BillOfMaterial::class);
     }
+
+    public function inventoryRecommendations()
+    {
+        return $this->hasMany(InventoryRecommendation::class);
+    }
 }

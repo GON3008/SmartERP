@@ -95,144 +95,58 @@ class EmployeeService
     /**
      * Record attendance
      */
-    public function recordAttendance(array $data): Attendance
-    {
-        // Check if attendance already exists
-        $existing = Attendance::where('employee_id', $data['employee_id'])
-            ->whereDate('date', $data['date'])
-            ->first();
+    // public function recordAttendance(array $data): Attendance
+    // {
+    //     // Check if attendance already exists
+    //     $existing = Attendance::where('employee_id', $data['employee_id'])
+    //         ->whereDate('date', $data['date'])
+    //         ->first();
 
-        if ($existing) {
-            // Update existing
-            $existing->update($data);
-            return $existing;
-        }
+    //     if ($existing) {
+    //         // Update existing
+    //         $existing->update($data);
+    //         return $existing;
+    //     }
 
-        return Attendance::create($data);
-    }
+    //     return Attendance::create($data);
+    // }
 
-    /**
-     * Check in
-     */
-    public function checkIn(int $employeeId, string $time = null): Attendance
-    {
-        $today = Carbon::today();
 
-        $attendance = Attendance::firstOrCreate(
-            [
-                'employee_id' => $employeeId,
-                'date' => $today,
-            ],
-            [
-                'check_in' => $time ?? Carbon::now()->format('H:i:s'),
-            ]
-        );
-
-        if ($attendance->wasRecentlyCreated) {
-            return $attendance;
-        }
-
-        // Update if already exists but no check_in yet
-        if (!$attendance->check_in) {
-            $attendance->update(['check_in' => $time ?? Carbon::now()->format('H:i:s')]);
-        }
-
-        return $attendance->fresh();
-    }
-
-    /**
-     * Check out
-     */
-    public function checkOut(int $employeeId, string $time = null): Attendance
-    {
-        $today = Carbon::today();
-
-        $attendance = Attendance::where('employee_id', $employeeId)
-            ->whereDate('date', $today)
-            ->firstOrFail();
-
-        $attendance->update([
-            'check_out' => $time ?? Carbon::now()->format('H:i:s')
-        ]);
-
-        return $attendance->fresh();
-    }
-
-    /**
-     * Get attendance report
-     */
-    public function getAttendanceReport(int $employeeId, int $month, int $year): array
-    {
-        $attendances = Attendance::where('employee_id', $employeeId)
-            ->whereYear('date', $year)
-            ->whereMonth('date', $month)
-            ->orderBy('date')
-            ->get();
-
-        $workingDays = 0;
-        $lateDays = 0;
-        $totalHours = 0;
-
-        foreach ($attendances as $attendance) {
-            $workingDays++;
-
-            if ($attendance->check_in && Carbon::parse($attendance->check_in)->format('H:i') > '08:30') {
-                $lateDays++;
-            }
-
-            if ($attendance->check_in && $attendance->check_out) {
-                $checkIn = Carbon::parse($attendance->check_in);
-                $checkOut = Carbon::parse($attendance->check_out);
-                $totalHours += $checkOut->diffInHours($checkIn);
-            }
-        }
-
-        return [
-            'employee_id' => $employeeId,
-            'month' => $month,
-            'year' => $year,
-            'working_days' => $workingDays,
-            'late_days' => $lateDays,
-            'total_hours' => $totalHours,
-            'average_hours_per_day' => $workingDays > 0 ? round($totalHours / $workingDays, 2) : 0,
-            'attendances' => $attendances,
-        ];
-    }
 
     /**
      * Calculate and create salary
      */
-    public function calculateSalary(int $employeeId, int $month, int $year, array $data = []): Salary
-    {
-        $employee = Employee::with('position')->findOrFail($employeeId);
+    // public function calculateSalary(int $employeeId, int $month, int $year, array $data = []): Salary
+    // {
+    //     $employee = Employee::with('position')->findOrFail($employeeId);
 
-        // Get attendance for the month
-        $attendanceReport = $this->getAttendanceReport($employeeId, $month, $year);
+    //     // Get attendance for the month
+    //     $attendanceReport = $this->getAttendanceReport($employeeId, $month, $year);
 
-        // Base salary from data or default
-        $baseSalary = $data['base_salary'] ?? 10000000; // Default 10M
+    //     // Base salary from data or default
+    //     $baseSalary = $data['base_salary'] ?? 10000000; // Default 10M
 
-        // Calculate allowance based on working days
-        $workingDayAllowance = ($attendanceReport['working_days'] >= 22) ? 1000000 : 0;
-        $allowance = ($data['allowance'] ?? 0) + $workingDayAllowance;
+    //     // Calculate allowance based on working days
+    //     $workingDayAllowance = ($attendanceReport['working_days'] >= 22) ? 1000000 : 0;
+    //     $allowance = ($data['allowance'] ?? 0) + $workingDayAllowance;
 
-        // Calculate deduction for late days
-        $lateDeduction = $attendanceReport['late_days'] * 50000; // 50k per late day
-        $deduction = ($data['deduction'] ?? 0) + $lateDeduction;
+    //     // Calculate deduction for late days
+    //     $lateDeduction = $attendanceReport['late_days'] * 50000; // 50k per late day
+    //     $deduction = ($data['deduction'] ?? 0) + $lateDeduction;
 
-        // Total salary
-        $totalSalary = $baseSalary + $allowance - $deduction;
+    //     // Total salary
+    //     $totalSalary = $baseSalary + $allowance - $deduction;
 
-        return Salary::create([
-            'employee_id' => $employeeId,
-            'base_salary' => $baseSalary,
-            'allowance' => $allowance,
-            'deduction' => $deduction,
-            'total_salary' => $totalSalary,
-            'month' => $month,
-            'year' => $year,
-        ]);
-    }
+    //     return Salary::create([
+    //         'employee_id' => $employeeId,
+    //         'base_salary' => $baseSalary,
+    //         'allowance' => $allowance,
+    //         'deduction' => $deduction,
+    //         'total_salary' => $totalSalary,
+    //         'month' => $month,
+    //         'year' => $year,
+    //     ]);
+    // }
 
     /**
      * Get employee statistics

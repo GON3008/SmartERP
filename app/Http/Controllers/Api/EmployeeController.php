@@ -7,8 +7,6 @@ use App\Services\EmployeeService;
 use App\Services\ActivityLogService;
 use App\Http\Requests\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Employee\UpdateEmployeeRequest;
-use App\Http\Requests\Attendance\StoreAttendanceRequest;
-use App\Http\Requests\Salary\StoreSalaryRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -73,54 +71,16 @@ class EmployeeController extends Controller
         }
     }
 
-    public function checkIn(Request $request): JsonResponse
-    {
-        $request->validate(['employee_id' => 'required|exists:employees,id']);
-
-        try {
-            $attendance = $this->employeeService->checkIn($request->employee_id);
-            return response()->json(['message' => 'Check in thành công!', 'data' => $attendance]);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Lỗi: ' . $e->getMessage()], 422);
-        }
-    }
-
-    public function checkOut(Request $request): JsonResponse
-    {
-        $request->validate(['employee_id' => 'required|exists:employees,id']);
-
-        try {
-            $attendance = $this->employeeService->checkOut($request->employee_id);
-            return response()->json(['message' => 'Check out thành công!', 'data' => $attendance]);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Lỗi: ' . $e->getMessage()], 422);
-        }
-    }
-
-    public function attendanceReport(Request $request, int $id): JsonResponse
-    {
-        $request->validate([
-            'month' => 'required|integer|between:1,12',
-            'year' => 'required|integer|min:2000',
-        ]);
-
-        $report = $this->employeeService->getAttendanceReport($id, $request->month, $request->year);
-        return response()->json(['data' => $report]);
-    }
-
-    public function calculateSalary(StoreSalaryRequest $request): JsonResponse
+    /**
+     * Get employee statistics
+     */
+    public function statistics(): JsonResponse
     {
         try {
-            $salary = $this->employeeService->calculateSalary(
-                $request->employee_id,
-                $request->month,
-                $request->year,
-                $request->validated()
-            );
-
-            return response()->json(['message' => 'Tính lương thành công!', 'data' => $salary], 201);
+            $statistics = $this->employeeService->getEmployeeStatistics();
+            return response()->json(['data' => $statistics]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Lỗi: ' . $e->getMessage()], 422);
+            return response()->json(['message' => 'Lỗi: ' . $e->getMessage()], 500);
         }
     }
 }
