@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use App\Http\Resources\ProductionLogResource;
 use Illuminate\Http\Resources\Json\JsonResource;
+use App\Http\Resources\ProductResource;
 
 class ProductionOrderResource extends JsonResource
 {

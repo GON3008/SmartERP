@@ -16,6 +16,8 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\DepartmentController;
 use App\Http\Controllers\Api\PositionController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\AttendanceController;
+use App\Http\Controllers\Api\SalaryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -208,5 +210,23 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('count', [NotificationController::class, 'count']);
         Route::get('low-stock', [NotificationController::class, 'lowStock']);
         Route::get('pending-orders', [NotificationController::class, 'pendingOrders']);
+    });
+
+    // =================== Attendance Management ===================
+    Route::prefix('attendances')->group(function () {
+        // Route::get('/', [AttendanceController::class, 'index'])->middleware('permission:view.attendances');
+        Route::post('/', [AttendanceController::class, 'store'])->middleware('permission:create.attendances');
+        Route::get('{id}', [AttendanceController::class, 'show'])->middleware('permission:view.attendances');
+        Route::put('{id}', [AttendanceController::class, 'update'])->middleware('permission:edit.attendances');
+        Route::delete('{id}', [AttendanceController::class, 'destroy'])->middleware('permission:delete.attendances');
+    });
+
+    // =================== Salary Management ===================
+    Route::prefix('salaries')->group(function () {
+        // Route::get('/', [SalaryController::class, 'index'])->middleware('permission:view.salaries');
+        Route::post('/', [SalaryController::class, 'store'])->middleware('permission:create.salaries');
+        Route::get('{id}', [SalaryController::class, 'show'])->middleware('permission:view.salaries');
+        Route::put('{id}', [SalaryController::class, 'update'])->middleware('permission:edit.salaries');
+        Route::delete('{id}', [SalaryController::class, 'destroy'])->middleware('permission:delete.salaries');
     });
 });

@@ -5,6 +5,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Inventory;
+use  App\Models\StockIn;
+use App\Models\StockOut;
+use App\Models\OrderItem;
+use App\Models\BillOfMaterial;
+use App\Models\InventoryRecommendation;
 
 class Product extends Model
 {
@@ -28,7 +34,7 @@ class Product extends Model
         return $this->hasMany(StockIn::class);
     }
 
-    public function stockOút()
+    public function stockOut()
     {
         return $this->hasMany(StockOut::class);
     }

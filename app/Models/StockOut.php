@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Product;
+use App\Models\WareHouse;
 
 class StockOut extends Model
 {
@@ -25,6 +27,6 @@ class StockOut extends Model
 
     public function warehouse ()
     {
-        return $this->belongsTo(Warehouse::class);
+        return $this->belongsTo(WareHouse::class);
     }
 }
