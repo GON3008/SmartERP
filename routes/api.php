@@ -32,9 +32,12 @@ Route::prefix('auth')->group(function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
     Route::post('reset-password', [AuthController::class, 'resetPassword']);
+    
+    // Refresh token - NO AUTH REQUIRED (access token might be expired)
+    Route::post('refresh', [AuthController::class, 'refreshToken']);
 
     // Protected routes - Cần authentication
-    Route::middleware(['auth:sanctum'])->group(function () {
+    Route::middleware(['auth:api'])->group(function () {
         // User info & logout
         Route::get('me', [AuthController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
@@ -45,7 +48,6 @@ Route::prefix('auth')->group(function () {
         Route::prefix('tokens')->group(function () {
             Route::get('/', [AuthController::class, 'activeTokens']);
             Route::get('info', [AuthController::class, 'tokenInfo']);
-            Route::post('refresh', [AuthController::class, 'refreshToken']);
             Route::delete('{tokenId}', [AuthController::class, 'revokeToken']);
             Route::delete('/', [AuthController::class, 'revokeOtherTokens']);
         });
@@ -53,7 +55,7 @@ Route::prefix('auth')->group(function () {
 });
 
 // ==================== PROTECTED ROUTES ====================
-Route::middleware(['auth:sanctum'])->group(function () {
+Route::middleware(['auth:api'])->group(function () {
 
     // ==================== USER MANAGEMENT ====================
     Route::prefix('users')->group(function () {

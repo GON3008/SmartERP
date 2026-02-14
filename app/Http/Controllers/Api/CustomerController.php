@@ -20,7 +20,11 @@ class CustomerController extends Controller
     public function index(Request $request)
     {
         $filters = $request->only(['search', 'sort_by', 'sort_order', 'per_page']);
-        return response()->json($this->customerService->getAllCustomers($filters));
+        $customers = $this->customerService->getAllCustomers($filters);
+        return response()->json([
+            'success' => true,
+            'data' => $customers,
+        ]);
     }
 
     public function store(StoreCustomerRequest $request)

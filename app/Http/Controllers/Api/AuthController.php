@@ -63,11 +63,18 @@ class AuthController extends Controller
     /**
      * Logout user (revoke all tokens)
      */
-    public function logout(): JsonResponse
+    public function logout(Request $request): JsonResponse
     {
+        // Revoke access tokens
         $this->authService->logout();
 
+        // Revoke refresh token if provided
+        if ($request->has('refresh_token')) {
+            $this->authService->revokeRefreshToken($request->refresh_token);
+        }
+
         return response()->json([
+            'success' => true,
             'message' => 'Đăng xuất thành công!'
         ]);
     }
@@ -153,18 +160,33 @@ class AuthController extends Controller
     }
 
     /**
-     * Refresh token
+     * Refresh access token using refresh token
      */
-    public function refreshToken(): JsonResponse
+    public function refreshToken(Request $request): JsonResponse
     {
+        $request->validate([
+            'refresh_token' => 'required|string'
+        ]);
+
         try {
-            $result = $this->authService->refreshToken();
+            // Extract expired access_token from Authorization header
+            $expiredAccessToken = null;
+            $authHeader = $request->header('Authorization');
+            if ($authHeader && str_starts_with($authHeader, 'Bearer ')) {
+                $expiredAccessToken = substr($authHeader, 7);
+            }
+
+            // Pass both refresh_token and expired access_token for validation
+            $result = $this->authService->refreshToken(
+                $request->refresh_token,
+                $expiredAccessToken
+            );
 
             return response()->json($result);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Làm mới token thất bại: ' . $e->getMessage()
-            ], 422);
+                'message' => $e->getMessage(),
+            ], 401);
         }
     }
 

@@ -7,6 +7,7 @@ use App\Services\ProductionService;
 use App\Services\ActivityLogService;
 use App\Http\Requests\Production\StoreProductionOrderRequest;
 use App\Http\Requests\Production\UpdateProductionOrderRequest;
+use App\Http\Resources\ProductionOrderResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -26,7 +27,10 @@ class ProductionController extends Controller
         $filters = $request->only(['status', 'product_id', 'from_date', 'to_date', 'per_page']);
         $orders = $this->productionService->getAllProductionOrders($filters);
 
-        return response()->json($orders);
+        return response()->json([
+            'success' => true,
+            'data' => ProductionOrderResource::collection($orders),
+        ]);
     }
 
     public function store(StoreProductionOrderRequest $request): JsonResponse
@@ -36,8 +40,9 @@ class ProductionController extends Controller
             $this->logService->log('created', 'production_orders', $order->id, "Tạo lệnh SX: {$order->order_code}");
 
             return response()->json([
+                'success' => true,
                 'message' => 'Tạo lệnh sản xuất thành công!',
-                'data' => $order
+                'data' => new ProductionOrderResource($order),
             ], 201);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Lỗi: ' . $e->getMessage()], 422);
@@ -48,7 +53,11 @@ class ProductionController extends Controller
     {
         try {
             $order = $this->productionService->updateProductionOrder($id, $request->validated());
-            return response()->json(['message' => 'Cập nhật thành công!', 'data' => $order]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Cập nhật thành công!',
+                'data' => new ProductionOrderResource($order),
+                ]);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Lỗi: ' . $e->getMessage()], 422);
         }

@@ -7,6 +7,7 @@ use App\Services\DepartmentService;
 use App\Services\ActivityLogService;
 use App\Http\Requests\Department\StoreDepartmentRequest;
 use App\Http\Requests\Department\UpdateDepartmentRequest;
+use App\Http\Resources\DepartmentResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -29,7 +30,10 @@ class DepartmentController extends Controller
         $filters = $request->only(['search', 'per_page']);
         $departments = $this->departmentService->getAllDepartments($filters);
 
-        return response()->json($departments);
+        return response()->json([
+            'success' => true,
+            'data' => DepartmentResource::collection($departments)
+        ]);
     }
 
     /**
@@ -43,11 +47,13 @@ class DepartmentController extends Controller
             $this->logService->log('created', 'departments', $department->id, "Tạo phòng ban: {$department->name}");
 
             return response()->json([
+                'success' => true,
                 'message' => 'Tạo phòng ban thành công!',
-                'data' => $department
+                'data' => new DepartmentResource($department)
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
+                'success' => false,
                 'message' => 'Lỗi: ' . $e->getMessage()
             ], 422);
         }
@@ -62,10 +68,12 @@ class DepartmentController extends Controller
             $department = $this->departmentService->getDepartmentById($id);
 
             return response()->json([
-                'data' => $department
+                'success' => true,
+                'data' => new DepartmentResource($department)
             ]);
         } catch (\Exception $e) {
             return response()->json([
+                'success' => false,
                 'message' => 'Phòng ban không tồn tại!'
             ], 404);
         }
@@ -82,11 +90,13 @@ class DepartmentController extends Controller
             $this->logService->log('updated', 'departments', $department->id, "Cập nhật phòng ban: {$department->name}");
 
             return response()->json([
+                'success' => true,
                 'message' => 'Cập nhật phòng ban thành công!',
-                'data' => $department
+                'data' => new DepartmentResource($department)
             ]);
         } catch (\Exception $e) {
             return response()->json([
+                'success' => false,
                 'message' => 'Lỗi: ' . $e->getMessage()
             ], 422);
         }
@@ -103,10 +113,12 @@ class DepartmentController extends Controller
             $this->logService->log('deleted', 'departments', $id, "Xóa phòng ban ID: {$id}");
 
             return response()->json([
+                'success' => true,
                 'message' => 'Xóa phòng ban thành công!'
             ]);
         } catch (\Exception $e) {
             return response()->json([
+                'success' => false,
                 'message' => 'Lỗi: ' . $e->getMessage()
             ], 422);
         }
@@ -120,6 +132,7 @@ class DepartmentController extends Controller
         $stats = $this->departmentService->getDepartmentStatistics();
 
         return response()->json([
+            'success' => true,
             'data' => $stats
         ]);
     }
@@ -133,13 +146,15 @@ class DepartmentController extends Controller
             $department = $this->departmentService->getDepartmentById($id);
 
             return response()->json([
+                'success' => true,
                 'data' => [
-                    'department' => $department,
-                    'employees' => $department->employees
+                    'department' => new DepartmentResource($department),
+                    'employees' => \App\Http\Resources\EmployeeResource::collection($department->employees)
                 ]
             ]);
         } catch (\Exception $e) {
             return response()->json([
+                'success' => false,
                 'message' => 'Phòng ban không tồn tại!'
             ], 404);
         }

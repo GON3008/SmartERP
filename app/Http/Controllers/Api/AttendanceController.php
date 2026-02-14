@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\StoreAttendanceRequest;
 use App\Services\AttendanceService;
+use App\Http\Resources\AttendanceResource;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -28,7 +29,7 @@ class AttendanceController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Attendance recorded successfully',
-                'data' => $attendance,
+                'data' => new AttendanceResource($attendance),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
@@ -58,7 +59,7 @@ class AttendanceController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Checked in successfully',
-                'data' => $attendance,
+                'data' => new AttendanceResource($attendance),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -88,7 +89,7 @@ class AttendanceController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Checked out successfully',
-                'data' => $attendance,
+                'data' => new AttendanceResource($attendance),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -119,7 +120,7 @@ class AttendanceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $report,
+                'data' => new AttendanceResource($report),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -148,7 +149,7 @@ class AttendanceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $summary,
+                'data' => new AttendanceResource($summary),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -179,7 +180,7 @@ class AttendanceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $lateEmployees,
+                'data' => new AttendanceResource($lateEmployees),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -210,7 +211,7 @@ class AttendanceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $attendances,
+                'data' => new AttendanceResource($attendances),
             ]);
         } catch (\Exception $e) {
             return response()->json([

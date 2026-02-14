@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\WarehouseService;
 use App\Http\Requests\Warehouse\StoreWarehouseRequest;
 use App\Http\Requests\Warehouse\UpdateWarehouseRequest;
+use App\Http\Resources\WarehouseResource;
 use Illuminate\Http\Request;
 
 class WarehouseController extends Controller
@@ -20,14 +21,21 @@ class WarehouseController extends Controller
     public function index(Request $request)
     {
         $filters = $request->only(['search', 'per_page']);
-        return response()->json($this->warehouseService->getAllWarehouses($filters));
+        $warehouse = $this->warehouseService->getAllWarehouses($filters);
+        return response()->json([
+            'success' => true,
+            'data' => WarehouseResource::collection($warehouse),
+        ]);
     }
 
     public function store(StoreWarehouseRequest $request)
     {
         try {
             $warehouse = $this->warehouseService->createWarehouse($request->validated());
-            return response()->json(['message' => 'Tạo kho thành công!', 'data' => $warehouse], 201);
+            return response()->json([
+                'message' => 'Tạo kho thành công!',
+                'data' => new WarehouseResource($warehouse),
+            ], 201);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Lỗi: ' . $e->getMessage()], 422);
         }
@@ -35,13 +43,21 @@ class WarehouseController extends Controller
 
     public function show(int $id)
     {
-        return response()->json(['data' => $this->warehouseService->getWarehouseById($id)]);
+        $warehouseShow = $this->warehouseService->getWarehouseById($id);
+        return response()->json([
+            'success' => true,
+            'data' => new WarehouseResource($warehouseShow)
+        ]);
     }
 
     public function update(UpdateWarehouseRequest $request, int $id)
     {
         $warehouse = $this->warehouseService->updateWarehouse($id, $request->validated());
-        return response()->json(['message' => 'Cập nhật thành công!', 'data' => $warehouse]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Cập nhật thành công!',
+            'data' => new WarehouseResource($warehouse),
+            ]);
     }
 
     public function destroy(int $id)

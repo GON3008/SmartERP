@@ -6,6 +6,7 @@ use App\Models\Warehouse;
 use App\Models\Inventory;
 use App\Models\StockIn;
 use App\Models\StockOut;
+use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 
 class WarehouseService
@@ -56,7 +57,7 @@ class WarehouseService
             $warehouse = Warehouse::create($data);
 
             // Auto create inventory records for all existing products
-            $products = \App\Models\Product::all();
+            $products = Product::all();
             foreach ($products as $product) {
                 Inventory::create([
                     'product_id' => $product->id,

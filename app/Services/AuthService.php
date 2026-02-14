@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Models\RefreshToken;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
@@ -45,7 +47,7 @@ class AuthService
     }
 
     /**
-     * Login user
+     * Login user with JWT
      */
     public function login(array $credentials, bool $remember = false): array
     {
@@ -72,16 +74,18 @@ class AuthService
         // Update last login
         $user->update(['last_login_at' => now()]);
 
-        // Create token with expiration
-        $expiresAt = $remember ? $this->getTokenExpiresAt(30) : $this->getTokenExpiresAt(); // 30 days if remember
-        $tokenResult = $user->createToken('auth_token', ['*'], $expiresAt);
+        // Create JWT access token (15 minutes)
+        $accessToken = auth('api')->login($user);
+
+        // Create refresh token (7 days, or 14 days if remember)
+        $refreshToken = $this->createRefreshToken($user, $remember ? 14 : 7);
 
         return [
             'user' => $user->load('roles.permissions'),
-            'token' => $tokenResult->plainTextToken,
+            'access_token' => $accessToken,
+            'refresh_token' => $refreshToken->token,
             'token_type' => 'Bearer',
-            'expires_at' => $expiresAt ? $expiresAt->toISOString() : null,
-            'expires_in' => $expiresAt ? $expiresAt->diffInSeconds(now()) : null, // seconds
+            'expires_in' => 900, // 15 minutes in seconds
             'message' => 'Đăng nhập thành công!',
         ];
     }
@@ -301,30 +305,89 @@ class AuthService
         return Carbon::now()->addMinutes((int) $expirationMinutes);
     }
 
-    /**
-     * Refresh token (revoke old, create new)
-     */
-    public function refreshToken(): array
+    public function refreshToken(string $refreshTokenString, ?string $expiredAccessToken = null): array
     {
-        $user = Auth::user();
+        $userId = null;
 
-        // Revoke current token
-        $currentToken = $user->currentAccessToken();
-        if ($currentToken) {
-            $user->tokens()->where('id', $currentToken->id)->delete();
+        if ($expiredAccessToken) {
+            try {
+                \Tymon\JWTAuth\Facades\JWTAuth::setToken($expiredAccessToken);
+                $payload = \Tymon\JWTAuth\Facades\JWTAuth::getPayload();
+                $userId = $payload->get('sub'); // user_id
+            } catch (\Tymon\JWTAuth\Exceptions\TokenExpiredException $e) {
+                // Token expired but we can still get payload
+                $payload = $e->getPayload();
+                $userId = $payload->get('sub');
+            } catch (\Exception $e) {
+                // Token parsing failed, continue without user_id check
+            }
         }
 
-        // Create new token
-        $expiresAt = $this->getTokenExpiresAt();
-        $tokenResult = $user->createToken('auth_token', ['*'], $expiresAt);
+        $hashedToken = hash('sha256', $refreshTokenString);
+
+        $query = RefreshToken::where('token', $hashedToken);
+        
+        // If we have user_id from access_token, validate it matches
+        if ($userId) {
+            $query->where('user_id', $userId);
+        }
+        
+        $refreshToken = $query->first();
+
+        if (!$refreshToken) {
+            throw new \Exception('Refresh token không hợp lệ hoặc không khớp với user');
+        }
+
+        if ($refreshToken->isExpired()) {
+            // Delete expired token
+            $refreshToken->delete();
+            throw new \Exception('Refresh token đã hết hạn');
+        }
+
+        $user = $refreshToken->user;
+
+        $newAccessToken = auth('api')->login($user);
 
         return [
-            'token' => $tokenResult->plainTextToken,
+            'access_token' => $newAccessToken,
             'token_type' => 'Bearer',
-            'expires_at' => $expiresAt ? $expiresAt->toISOString() : null,
-            'expires_in' => $expiresAt ? $expiresAt->diffInSeconds(now()) : null,
-            'message' => 'Token đã được làm mới!',
+            'expires_in' => 900, // 15 minutes in seconds
         ];
+    }
+
+    /**
+     * Create refresh token for user
+     * SECURE: Stores hashed token in DB
+     */
+    private function createRefreshToken(User $user, int $days = 30): RefreshToken
+    {
+        // Delete old refresh tokens for this user (keep only 1 active)
+        RefreshToken::where('user_id', $user->id)->delete();
+
+        // Generate random token
+        $plainToken = Str::random(64);
+        
+        // Hash token before storing
+        $hashedToken = hash('sha256', $plainToken);
+
+        $refreshToken = RefreshToken::create([
+            'user_id' => $user->id,
+            'token' => $hashedToken, // Store hashed version
+            'expires_at' => Carbon::now()->addDays($days),
+        ]);
+
+        // Return plain token to send to client
+        $refreshToken->token = $plainToken;
+        return $refreshToken;
+    }
+
+    /**
+     * Revoke refresh token
+     */
+    public function revokeRefreshToken(string $refreshTokenString): bool
+    {
+        $hashedToken = hash('sha256', $refreshTokenString);
+        return RefreshToken::where('token', $hashedToken)->delete() > 0;
     }
 
     /**

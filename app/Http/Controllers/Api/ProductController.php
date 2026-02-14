@@ -9,7 +9,6 @@ use App\Http\Requests\Product\StoreProductRequest;
 use App\Http\Requests\Product\UpdateProductRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use PhpParser\Node\Expr\FuncCall;
 
 class ProductController extends Controller
 {

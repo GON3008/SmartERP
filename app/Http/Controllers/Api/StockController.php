@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\StockInResource;
+use App\Http\Resources\StockOutResource;
 use App\Services\StockService;
 use App\Services\ActivityLogService;
 use App\Http\Requests\Stock\StoreStockInRequest;
 use App\Http\Requests\Stock\StoreStockOutRequest;
+use GrahamCampbell\ResultType\Success;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -28,8 +31,9 @@ class StockController extends Controller
             $this->logService->log('stock_in', 'stock_in', $stockIn->id, "Nhập kho: {$stockIn->product->name}");
 
             return response()->json([
+                'success' => true,
                 'message' => 'Nhập kho thành công!',
-                'data' => $stockIn
+                'data' => new StockInResource($stockIn),
             ], 201);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Lỗi: ' . $e->getMessage()], 422);
@@ -43,8 +47,9 @@ class StockController extends Controller
             $this->logService->log('stock_out', 'stock_out', $stockOut->id, "Xuất kho: {$stockOut->product->name}");
 
             return response()->json([
+                'success' => true,
                 'message' => 'Xuất kho thành công!',
-                'data' => $stockOut
+                'data' => new StockOutResource($stockOut)
             ], 201);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Lỗi: ' . $e->getMessage()], 422);
