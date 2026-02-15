@@ -9,7 +9,6 @@ use App\Http\Requests\User\StoreUserRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
-use PhpParser\Node\Expr\FuncCall;
 
 class AuthController extends Controller
 {

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\CustomerService;
 use App\Http\Requests\Customer\StoreCustomerRequest;
 use App\Http\Requests\Customer\UpdateCustomerRequest;
+use App\Http\Resources\CustomerResource;
 use Illuminate\Http\Request;
 
 class CustomerController extends Controller
@@ -23,19 +24,26 @@ class CustomerController extends Controller
         $customers = $this->customerService->getAllCustomers($filters);
         return response()->json([
             'success' => true,
-            'data' => $customers,
+            'data' => CustomerResource::collection($customers),
         ]);
     }
 
     public function store(StoreCustomerRequest $request)
     {
         $customer = $this->customerService->createCustomer($request->validated());
-        return response()->json(['message' => 'Tạo khách hàng thành công!', 'data' => $customer], 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Tạo khách hàng thành công!',
+            'data' => new CustomerResource($customer),
+            ], 201);
     }
 
     public function show(int $id)
     {
-        return response()->json(['data' => $this->customerService->getCustomerById($id)]);
+        $customerShow = $this->customerService->getCustomerById($id);
+        return response()->json([
+            'success' => true,
+            'data' => new CustomerResource($customerShow)]);
     }
 
     public function update(UpdateCustomerRequest $request, int $id)

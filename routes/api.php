@@ -29,15 +29,15 @@ use App\Http\Controllers\Api\SalaryController;
 Route::prefix('auth')->group(function () {
     // Public routes
     Route::post('register', [AuthController::class, 'register']);
-    Route::post('login', [AuthController::class, 'login']);
-    Route::post('forgot-password', [AuthController::class, 'forgotPassword']);
-    Route::post('reset-password', [AuthController::class, 'resetPassword']);
-    
+    Route::post('login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:otp');
+    Route::post('reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:otp');
+
     // Refresh token - NO AUTH REQUIRED (access token might be expired)
-    Route::post('refresh', [AuthController::class, 'refreshToken']);
+    Route::post('refresh', [AuthController::class, 'refreshToken'])->middleware('throttle:refresh-token');
 
     // Protected routes - Cần authentication
-    Route::middleware(['auth:api'])->group(function () {
+    Route::middleware(['auth:api', 'throttle:api-user'])->group(function () {
         // User info & logout
         Route::get('me', [AuthController::class, 'me']);
         Route::post('logout', [AuthController::class, 'logout']);
@@ -55,7 +55,7 @@ Route::prefix('auth')->group(function () {
 });
 
 // ==================== PROTECTED ROUTES ====================
-Route::middleware(['auth:api'])->group(function () {
+Route::middleware(['auth:api', 'throttle:api-user'])->group(function () {
 
     // ==================== USER MANAGEMENT ====================
     Route::prefix('users')->group(function () {
@@ -195,7 +195,7 @@ Route::middleware(['auth:api'])->group(function () {
     });
 
     // ==================== REPORTS & ANALYTICS ====================
-    Route::prefix('reports')->middleware('permission:view.reports')->group(function () {
+    Route::prefix('reports')->middleware(['permission:view.reports', 'throttle:reports'])->group(function () {
         Route::get('dashboard', [ReportController::class, 'dashboard']);
         Route::get('sales', [ReportController::class, 'sales']);
         Route::get('top-products', [ReportController::class, 'topProducts']);
@@ -207,12 +207,14 @@ Route::middleware(['auth:api'])->group(function () {
     });
 
     // ==================== NOTIFICATIONS ====================
-    Route::prefix('notifications')->group(function () {
-        Route::get('/', [NotificationController::class, 'index']);
-        Route::get('count', [NotificationController::class, 'count']);
-        Route::get('low-stock', [NotificationController::class, 'lowStock']);
-        Route::get('pending-orders', [NotificationController::class, 'pendingOrders']);
-    });
+    Route::prefix('notifications')
+        ->middleware('throttle:60,1')
+        ->group(function () {
+            Route::get('/', [NotificationController::class, 'index']);
+            Route::get('count', [NotificationController::class, 'count']);
+            Route::get('low-stock', [NotificationController::class, 'lowStock']);
+            Route::get('pending-orders', [NotificationController::class, 'pendingOrders']);
+        });
 
     // =================== Attendance Management ===================
     Route::prefix('attendances')->group(function () {
@@ -231,4 +233,26 @@ Route::middleware(['auth:api'])->group(function () {
         Route::put('{id}', [SalaryController::class, 'update'])->middleware('permission:edit.salaries');
         Route::delete('{id}', [SalaryController::class, 'destroy'])->middleware('permission:delete.salaries');
     });
+
+    // =================== Activity Logs ===================
+    Route::prefix('activity-logs')->middleware('role:Super Admin,Admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\ActivityLogController::class, 'index']);
+        Route::get('statistics', [\App\Http\Controllers\Api\ActivityLogController::class, 'statistics']);
+        Route::get('{tableName}/{recordId}', [\App\Http\Controllers\Api\ActivityLogController::class, 'show']);
+    });
 });
+
+
+Route::middleware([
+    'auth:sanctum',
+    'role:admin',
+    'permission:product.create'
+])->post('/products', [ProductController::class, 'store']);
+
+$routes = collect(Route::getRoutes())
+    ->filter(fn ($r) => str_starts_with($r->uri(), 'api/'))
+    ->filter(fn ($r) => in_array('auth:api', $r->middleware()))
+    ->map(fn ($r) => [
+        'method' => strtolower($r->methods()[0]),
+        'uri' => '/'.$r->uri(),
+    ]);
