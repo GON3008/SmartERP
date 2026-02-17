@@ -13,9 +13,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         // ==================== API MIDDLEWARE ====================
-        $middleware->api(prepend: [
-            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-        ]);
+        // Không cần Sanctum stateful middleware vì đang dùng JWT
+        // $middleware->api(prepend: [
+        //     \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
+        // ]);
+
+        // Add CORS middleware
+        $middleware->append(\Illuminate\Http\Middleware\HandleCors::class);
 
         $middleware->alias([
             'permission' => \App\Http\Middleware\CheckPermission::class,
