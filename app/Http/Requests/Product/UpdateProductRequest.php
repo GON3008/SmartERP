@@ -12,7 +12,7 @@ class UpdateProductRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -23,7 +23,7 @@ class UpdateProductRequest extends FormRequest
     public function rules(): array
     {
         // lấy product id từ route parameter
-        $productId = $this->route('product');
+        $productId = $this->route('id');
         return [
             'sku' => [
                 'sometimes', //chỉ validate nếu có trong request

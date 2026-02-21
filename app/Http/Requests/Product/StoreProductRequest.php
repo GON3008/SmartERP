@@ -12,7 +12,7 @@ class StoreProductRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -26,13 +26,18 @@ class StoreProductRequest extends FormRequest
             'sku' => [
                 'required',
                 'string',
-                'max: 255',
+                'max:255',
                 'unique:products,sku',
             ],
             'name' => [
                 'required',
                 'string',
                 'max: 255',
+            ],
+            'category' => [
+                'required',
+                'string',
+                'max:255',
                 Rule::in([
                     'Electronics',
                     'Furniture',

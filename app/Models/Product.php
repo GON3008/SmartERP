@@ -11,6 +11,7 @@ use App\Models\StockOut;
 use App\Models\OrderItem;
 use App\Models\BillOfMaterial;
 use App\Models\InventoryRecommendation;
+use App\Models\ProductionOrder;
 
 class Product extends Model
 {
@@ -49,8 +50,18 @@ class Product extends Model
         return $this->hasMany(BillOfMaterial::class);
     }
 
+    public function materialsUsedIn()
+    {
+        return $this->hasMany(BillOfMaterial::class, 'material_id');
+    }
+
     public function inventoryRecommendations()
     {
         return $this->hasMany(InventoryRecommendation::class);
+    }
+
+    public function productionOrders()
+    {
+        return $this->hasMany(ProductionOrder::class);
     }
 }

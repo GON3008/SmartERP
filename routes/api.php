@@ -242,17 +242,10 @@ Route::middleware(['auth:api', 'throttle:api-user'])->group(function () {
     });
 });
 
-
-Route::middleware([
-    'auth:sanctum',
-    'role:admin',
-    'permission:product.create'
-])->post('/products', [ProductController::class, 'store']);
-
-$routes = collect(Route::getRoutes())
-    ->filter(fn ($r) => str_starts_with($r->uri(), 'api/'))
-    ->filter(fn ($r) => in_array('auth:api', $r->middleware()))
-    ->map(fn ($r) => [
-        'method' => strtolower($r->methods()[0]),
-        'uri' => '/'.$r->uri(),
-    ]);
+// $routes = collect(Route::getRoutes())
+//     ->filter(fn ($r) => str_starts_with($r->uri(), 'api/'))
+//     ->filter(fn ($r) => in_array('auth:api', $r->middleware()))
+//     ->map(fn ($r) => [
+//         'method' => strtolower($r->methods()[0]),
+//         'uri' => '/'.$r->uri(),
+//     ]);
