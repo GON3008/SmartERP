@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Salary\StoreSalaryRequest;
 use App\Services\SalaryService;
+use App\Models\Salary;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,6 +21,43 @@ class SalaryController extends Controller
     /**
      * Get all salary records with filters
      */
+    public function index(Request $request): JsonResponse
+    {
+        $request->validate([
+            'employee_id' => 'nullable|exists:employees,id',
+            'month'       => 'nullable|integer|min:1|max:12',
+            'year'        => 'nullable|integer|min:2000',
+            'per_page'    => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $query = Salary::with(['employee.department', 'employee.position'])
+            ->orderBy('year', 'desc')
+            ->orderBy('month', 'desc');
+
+        if ($request->employee_id) {
+            $query->where('employee_id', $request->employee_id);
+        }
+        if ($request->month) {
+            $query->where('month', $request->month);
+        }
+        if ($request->year) {
+            $query->where('year', $request->year);
+        }
+
+        $perPage = $request->per_page ?? 15;
+        $salaries = $query->paginate($perPage);
+
+        return response()->json([
+            'success' => true,
+            'data'    => $salaries->items(),
+            'meta'    => [
+                'total'        => $salaries->total(),
+                'per_page'     => $salaries->perPage(),
+                'current_page' => $salaries->currentPage(),
+                'last_page'    => $salaries->lastPage(),
+            ],
+        ]);
+    }
 
     /**
      * Get salary by ID
@@ -31,13 +69,13 @@ class SalaryController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $salary,
+                'data'    => $salary,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Salary not found',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 404);
         }
     }
@@ -58,13 +96,13 @@ class SalaryController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Salary calculated successfully',
-                'data' => $salary,
+                'data'    => $salary,
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to calculate salary',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -76,8 +114,8 @@ class SalaryController extends Controller
     {
         $request->validate([
             'base_salary' => 'nullable|numeric|min:0',
-            'allowance' => 'nullable|numeric|min:0',
-            'deduction' => 'nullable|numeric|min:0',
+            'allowance'   => 'nullable|numeric|min:0',
+            'deduction'   => 'nullable|numeric|min:0',
         ]);
 
         try {
@@ -86,13 +124,13 @@ class SalaryController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Salary updated successfully',
-                'data' => $salary,
+                'data'    => $salary,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update salary',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -113,36 +151,7 @@ class SalaryController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete salary',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Get salaries for an employee
-     */
-    public function employeeSalaries(Request $request): JsonResponse
-    {
-        $request->validate([
-            'employee_id' => 'required|exists:employees,id',
-            'limit' => 'nullable|integer|min:1',
-        ]);
-
-        try {
-            $salaries = $this->salaryService->getEmployeeSalaries(
-                $request->employee_id,
-                $request->limit
-            );
-
-            return response()->json([
-                'success' => true,
-                'data' => $salaries,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to get employee salaries',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -154,7 +163,7 @@ class SalaryController extends Controller
     {
         $request->validate([
             'month' => 'required|integer|min:1|max:12',
-            'year' => 'required|integer|min:2000',
+            'year'  => 'required|integer|min:2000',
         ]);
 
         try {
@@ -165,26 +174,55 @@ class SalaryController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $summary,
+                'data'    => $summary,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get salary summary',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Generate payroll for all employees
+     * Get salaries for an employee
+     */
+    public function employeeSalaries(Request $request): JsonResponse
+    {
+        $request->validate([
+            'employee_id' => 'required|exists:employees,id',
+            'limit'       => 'nullable|integer|min:1',
+        ]);
+
+        try {
+            $salaries = $this->salaryService->getEmployeeSalaries(
+                $request->employee_id,
+                $request->limit
+            );
+
+            return response()->json([
+                'success' => true,
+                'data'    => $salaries,
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get employee salaries',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate payroll for all (or selected) employees
      */
     public function generatePayroll(Request $request): JsonResponse
     {
         $request->validate([
-            'month' => 'required|integer|min:1|max:12',
-            'year' => 'required|integer|min:2000',
-            'employee_ids' => 'nullable|array',
+            'month'          => 'required|integer|min:1|max:12',
+            'year'           => 'required|integer|min:2000',
+            'employee_ids'   => 'nullable|array',
             'employee_ids.*' => 'exists:employees,id',
         ]);
 
@@ -198,13 +236,13 @@ class SalaryController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Payroll generated successfully',
-                'data' => $result,
+                'data'    => $result,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to generate payroll',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -223,13 +261,13 @@ class SalaryController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $statistics,
+                'data'    => $statistics,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get yearly statistics',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }
@@ -241,7 +279,7 @@ class SalaryController extends Controller
     {
         $request->validate([
             'month' => 'required|integer|min:1|max:12',
-            'year' => 'required|integer|min:2000',
+            'year'  => 'required|integer|min:2000',
             'limit' => 'nullable|integer|min:1|max:50',
         ]);
 
@@ -254,46 +292,13 @@ class SalaryController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $topEarners,
+                'data'    => $topEarners,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get top earners',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Compare salary between two periods
-     */
-    public function comparePeriods(Request $request): JsonResponse
-    {
-        $request->validate([
-            'month1' => 'required|integer|min:1|max:12',
-            'year1' => 'required|integer|min:2000',
-            'month2' => 'required|integer|min:1|max:12',
-            'year2' => 'required|integer|min:2000',
-        ]);
-
-        try {
-            $comparison = $this->salaryService->compareSalaryPeriods(
-                $request->month1,
-                $request->year1,
-                $request->month2,
-                $request->year2
-            );
-
-            return response()->json([
-                'success' => true,
-                'data' => $comparison,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to compare periods',
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ], 500);
         }
     }

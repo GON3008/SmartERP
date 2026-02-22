@@ -218,8 +218,15 @@ Route::middleware(['auth:api', 'throttle:api-user'])->group(function () {
 
     // =================== Attendance Management ===================
     Route::prefix('attendances')->group(function () {
-        // Route::get('/', [AttendanceController::class, 'index'])->middleware('permission:view.attendances');
+        Route::get('/', [AttendanceController::class, 'index'])->middleware('permission:view.attendances');
         Route::post('/', [AttendanceController::class, 'store'])->middleware('permission:create.attendances');
+        Route::get('monthly-summary', [AttendanceController::class, 'monthlySummary'])->middleware('permission:view.attendances');
+        Route::get('today-status', [AttendanceController::class, 'todayStatus'])->middleware('permission:view.attendances');
+        Route::get('report', [AttendanceController::class, 'report'])->middleware('permission:view.attendances');
+        Route::get('late-employees', [AttendanceController::class, 'lateEmployees'])->middleware('permission:view.attendances');
+        Route::get('overtime', [AttendanceController::class, 'overtime'])->middleware('permission:view.attendances');
+        Route::post('check-in', [AttendanceController::class, 'checkIn'])->middleware('permission:create.attendances');
+        Route::post('check-out', [AttendanceController::class, 'checkOut'])->middleware('permission:create.attendances');
         Route::get('{id}', [AttendanceController::class, 'show'])->middleware('permission:view.attendances');
         Route::put('{id}', [AttendanceController::class, 'update'])->middleware('permission:edit.attendances');
         Route::delete('{id}', [AttendanceController::class, 'destroy'])->middleware('permission:delete.attendances');
@@ -227,8 +234,13 @@ Route::middleware(['auth:api', 'throttle:api-user'])->group(function () {
 
     // =================== Salary Management ===================
     Route::prefix('salaries')->group(function () {
-        // Route::get('/', [SalaryController::class, 'index'])->middleware('permission:view.salaries');
+        Route::get('/', [SalaryController::class, 'index'])->middleware('permission:view.salaries');
         Route::post('/', [SalaryController::class, 'store'])->middleware('permission:create.salaries');
+        Route::get('summary', [SalaryController::class, 'summary'])->middleware('permission:view.salaries');
+        Route::get('employee', [SalaryController::class, 'employeeSalaries'])->middleware('permission:view.salaries');
+        Route::post('generate-payroll', [SalaryController::class, 'generatePayroll'])->middleware('permission:create.salaries');
+        Route::get('yearly-statistics', [SalaryController::class, 'yearlyStatistics'])->middleware('permission:view.salaries');
+        Route::get('top-earners', [SalaryController::class, 'topEarners'])->middleware('permission:view.salaries');
         Route::get('{id}', [SalaryController::class, 'show'])->middleware('permission:view.salaries');
         Route::put('{id}', [SalaryController::class, 'update'])->middleware('permission:edit.salaries');
         Route::delete('{id}', [SalaryController::class, 'destroy'])->middleware('permission:delete.salaries');
@@ -239,6 +251,16 @@ Route::middleware(['auth:api', 'throttle:api-user'])->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\ActivityLogController::class, 'index']);
         Route::get('statistics', [\App\Http\Controllers\Api\ActivityLogController::class, 'statistics']);
         Route::get('{tableName}/{recordId}', [\App\Http\Controllers\Api\ActivityLogController::class, 'show']);
+    });
+
+    // =================== AI Purchase Suggestions (Ollama) ===================
+    Route::prefix('ai')->group(function () {
+        Route::get('health', [\App\Http\Controllers\Api\AiSuggestionController::class, 'health']);
+        Route::middleware('permission:view.products')->group(function () {
+            Route::get('suggestions', [\App\Http\Controllers\Api\AiSuggestionController::class, 'index']);
+            Route::post('suggestions/generate', [\App\Http\Controllers\Api\AiSuggestionController::class, 'generate']);
+            Route::delete('suggestions/{id}', [\App\Http\Controllers\Api\AiSuggestionController::class, 'destroy']);
+        });
     });
 });
 

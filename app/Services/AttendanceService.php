@@ -26,6 +26,8 @@ class AttendanceService
         return Attendance::create($data);
     }
 
+
+
     /**
      * Check in
      */

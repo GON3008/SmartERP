@@ -20,16 +20,16 @@ class WareHouse extends Model
 
     public function inventories()
     {
-        return $this->hasMany(Inventory::class);
+        return $this->hasMany(Inventory::class, 'warehouse_id');
     }
 
     public function stockIns()
     {
-        return $this->hasMany(StockIn::class);
+        return $this->hasMany(StockIn::class, 'warehouse_id');
     }
 
     public function stockOuts()
     {
-        return $this->hasMany(StockOut::class);
+        return $this->hasMany(StockOut::class, 'warehouse_id');
     }
 }
