@@ -7,14 +7,14 @@ use App\Models\Product;
 use App\Models\Inventory;
 use App\Models\InventoryRecommendation;
 use App\Models\OrderItem;
-use App\Services\OllamaService;
+use App\Services\GeminiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class AiSuggestionController extends Controller
 {
-    public function __construct(protected OllamaService $ollama) {}
+    public function __construct(protected GeminiService $gemini) {}
 
     // GET /api/ai/suggestions  →  Return saved suggestions
     public function index(Request $request)
@@ -94,7 +94,7 @@ class AiSuggestionController extends Controller
             ];
         });
 
-        //Build Ollama prompt
+        //Build Gemini prompt
         $productJson = $productLines->take(30)->toJson(JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
 
         $prompt = <<<PROMPT
@@ -125,24 +125,29 @@ Nhiệm vụ:
 Chỉ bao gồm các sản phẩm thực sự cần nhập hàng.
 PROMPT;
 
-        //Call Ollama
+        //Call Gemini
         try {
-            $rawResponse = $this->ollama->chat($prompt);
+            $rawResponse = $this->gemini->chat($prompt, jsonMode: true);
         } catch (\RuntimeException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 503);
         }
 
-        //Extract JSON from response (Ollama sometimes wraps in markdown)
+        //Extract JSON from response
         $suggestions = $this->parseJsonFromResponse($rawResponse);
 
         if ($suggestions === null) {
-            Log::warning('Ollama returned non-JSON', ['raw' => $rawResponse]);
+            Log::warning('Gemini returned non-JSON', ['raw' => $rawResponse]);
             return response()->json([
                 'success'      => false,
-                'message'      => 'Ollama không trả về JSON hợp lệ. Thử lại hoặc đổi model.',
+                'message'      => 'Gemini không trả về JSON hợp lệ. Thử lại.',
                 'raw_response' => $rawResponse,
             ], 422);
         }
+
+        Log::info('Gemini AI suggestions raw', [
+            'suggestions_count' => count($suggestions),
+            'raw'               => substr($rawResponse, 0, 2000),
+        ]);
 
         // 6. Save to DB
         $productMap = $productLines->keyBy('id');
@@ -150,7 +155,10 @@ PROMPT;
 
         foreach ($suggestions as $item) {
             $pid = (int) ($item['product_id'] ?? 0);
-            if (!isset($productMap[$pid])) continue;
+            if (!isset($productMap[$pid])) {
+                Log::debug('AI suggestion product_id not in map', ['pid' => $pid, 'available_ids' => $productMap->keys()->all()]);
+                continue;
+            }
 
             $meta = $productMap[$pid];
 
@@ -171,18 +179,22 @@ PROMPT;
             );
         }
 
+        $message = count($saved) > 0
+            ? 'Đã phân tích và tạo ' . count($saved) . ' đề xuất nhập hàng.'
+            : 'AI phân tích xong: tất cả sản phẩm đều đủ tồn kho, không cần nhập thêm.';
+
         return response()->json([
             'success' => true,
-            'message' => 'Đã phân tích và tạo ' . count($saved) . ' đề xuất nhập hàng.',
+            'message' => $message,
             'data'    => $saved,
         ]);
     }
 
 
-    // GET /api/ai/health  →  Check Ollama status
+    // GET /api/ai/health  →  Check Gemini status
     public function health()
     {
-        return response()->json($this->ollama->health());
+        return response()->json($this->gemini->health());
     }
 
     // DELETE /api/ai/suggestions/{id}

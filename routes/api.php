@@ -25,6 +25,32 @@ use App\Http\Controllers\Api\SalaryController;
 |--------------------------------------------------------------------------
 */
 
+// ==================== MAINTENANCE STATUS (public, ALWAYS available) ====================
+// Uses withoutMiddleware so this route is reachable even when maintenance mode is ON.
+// Returns JSON with the real maintenance state so the frontend can act accordingly.
+Route::get('maintenance-status', function (\Illuminate\Http\Request $request) {
+    $maintenanceFile = storage_path('framework/maintenance.php');
+    $enabled = file_exists($maintenanceFile);
+    $message = 'Hệ thống đang được nâng cấp, vui lòng quay lại sau...';
+    if ($enabled) {
+        $payload = @include $maintenanceFile;
+        if (!empty($payload['message'])) {
+            $message = $payload['message'];
+        }
+    }
+    $origin = $request->header('Origin', '*');
+    return response()->json(['enabled' => $enabled, 'message' => $message])
+        ->header('Access-Control-Allow-Origin', $origin)
+        ->header('Access-Control-Allow-Credentials', 'true')
+        ->header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        ->header('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization, X-Requested-With');
+})->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance::class);
+
+// ==================== MAINTENANCE CHECK (legacy, kept for compatibility) ====================
+Route::get('maintenance-check', function () {
+    return response()->json(['status' => 'ok']);
+});
+
 // ==================== AUTH ROUTES ====================
 Route::prefix('auth')->group(function () {
     // Public routes
@@ -261,6 +287,34 @@ Route::middleware(['auth:api', 'throttle:api-user'])->group(function () {
             Route::post('suggestions/generate', [\App\Http\Controllers\Api\AiSuggestionController::class, 'generate']);
             Route::delete('suggestions/{id}', [\App\Http\Controllers\Api\AiSuggestionController::class, 'destroy']);
         });
+    });
+
+    // =================== Barcode / QR ===================
+    Route::prefix('barcode')->middleware('permission:view.products')->group(function () {
+        Route::get('scan', [\App\Http\Controllers\Api\BarcodeController::class, 'scan']);
+        Route::get('product/{id}', [\App\Http\Controllers\Api\BarcodeController::class, 'forProduct']);
+        Route::post('batch', [\App\Http\Controllers\Api\BarcodeController::class, 'batch']);
+    });
+
+    // =================== OCR – Invoice / Receipt Reader ===================
+    Route::prefix('ocr')->group(function () {
+        Route::get('status', [\App\Http\Controllers\Api\OcrController::class, 'status']);
+        Route::middleware('permission:view.products')->group(function () {
+            Route::post('scan-image', [\App\Http\Controllers\Api\OcrController::class, 'scanImage']);
+            Route::post('scan-text',  [\App\Http\Controllers\Api\OcrController::class, 'scanText']);
+        Route::post('create-stock-in', [\App\Http\Controllers\Api\OcrController::class, 'createStockIn']);
+        });
+    });
+
+    // =================== Settings (Super Admin) ===================
+    Route::prefix('settings')->middleware('role:Super Admin')->group(function () {
+        Route::get('/',            [\App\Http\Controllers\Api\SettingController::class, 'index']);
+        Route::post('/',           [\App\Http\Controllers\Api\SettingController::class, 'save']);
+        Route::get('status',       [\App\Http\Controllers\Api\SettingController::class, 'systemStatus']);
+        Route::post('clear-cache', [\App\Http\Controllers\Api\SettingController::class, 'clearCache']);
+        Route::post('optimize-db', [\App\Http\Controllers\Api\SettingController::class, 'optimizeDb']);
+        Route::post('test-email',  [\App\Http\Controllers\Api\SettingController::class, 'testEmail']);
+        Route::post('maintenance', [\App\Http\Controllers\Api\SettingController::class, 'toggleMaintenance']);
     });
 });
 
