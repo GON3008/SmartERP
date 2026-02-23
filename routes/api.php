@@ -18,6 +18,11 @@ use App\Http\Controllers\Api\PositionController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\AttendanceController;
 use App\Http\Controllers\Api\SalaryController;
+use App\Http\Controllers\Api\SupplierController;
+use App\Http\Controllers\Api\PurchaseOrderController;
+use App\Http\Controllers\Api\InvoiceController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\AccountController;
 
 /*
 |--------------------------------------------------------------------------
@@ -315,6 +320,60 @@ Route::middleware(['auth:api', 'throttle:api-user'])->group(function () {
         Route::post('optimize-db', [\App\Http\Controllers\Api\SettingController::class, 'optimizeDb']);
         Route::post('test-email',  [\App\Http\Controllers\Api\SettingController::class, 'testEmail']);
         Route::post('maintenance', [\App\Http\Controllers\Api\SettingController::class, 'toggleMaintenance']);
+    });
+
+    // =================== SUPPLIER MANAGEMENT ===================
+    Route::prefix('suppliers')->group(function () {
+        Route::get('/', [SupplierController::class, 'index'])->middleware('permission:view.suppliers');
+        Route::post('/', [SupplierController::class, 'store'])->middleware('permission:create.suppliers');
+        Route::get('{id}', [SupplierController::class, 'show'])->middleware('permission:view.suppliers');
+        Route::put('{id}', [SupplierController::class, 'update'])->middleware('permission:edit.suppliers');
+        Route::delete('{id}', [SupplierController::class, 'destroy'])->middleware('permission:delete.suppliers');
+        Route::get('{id}/purchase-history', [SupplierController::class, 'purchaseHistory'])->middleware('permission:view.suppliers');
+        Route::get('{id}/statistics', [SupplierController::class, 'statistics'])->middleware('permission:view.suppliers');
+    });
+
+    // =================== PURCHASE ORDER MANAGEMENT ===================
+    Route::prefix('purchase-orders')->group(function () {
+        Route::get('/', [PurchaseOrderController::class, 'index'])->middleware('permission:view.purchase-orders');
+        Route::post('/', [PurchaseOrderController::class, 'store'])->middleware('permission:create.purchase-orders');
+        Route::get('statistics', [PurchaseOrderController::class, 'statistics'])->middleware('permission:view.purchase-orders');
+        Route::get('{id}', [PurchaseOrderController::class, 'show'])->middleware('permission:view.purchase-orders');
+        Route::put('{id}', [PurchaseOrderController::class, 'update'])->middleware('permission:edit.purchase-orders');
+        Route::delete('{id}', [PurchaseOrderController::class, 'destroy'])->middleware('permission:delete.purchase-orders');
+        Route::post('{id}/confirm', [PurchaseOrderController::class, 'confirm'])->middleware('permission:approve.purchase-orders');
+        Route::post('{id}/receive', [PurchaseOrderController::class, 'receive'])->middleware('permission:approve.purchase-orders');
+        Route::post('{id}/cancel', [PurchaseOrderController::class, 'cancel'])->middleware('permission:edit.purchase-orders');
+    });
+
+    // =================== INVOICE MANAGEMENT ===================
+    Route::prefix('invoices')->group(function () {
+        Route::get('/', [InvoiceController::class, 'index'])->middleware('permission:view.invoices');
+        Route::post('/', [InvoiceController::class, 'store'])->middleware('permission:create.invoices');
+        Route::get('statistics', [InvoiceController::class, 'statistics'])->middleware('permission:view.invoices');
+        Route::get('{id}', [InvoiceController::class, 'show'])->middleware('permission:view.invoices');
+        Route::put('{id}', [InvoiceController::class, 'update'])->middleware('permission:edit.invoices');
+        Route::delete('{id}', [InvoiceController::class, 'destroy'])->middleware('permission:delete.invoices');
+        Route::post('{id}/send', [InvoiceController::class, 'send'])->middleware('permission:edit.invoices');
+        Route::post('{id}/cancel', [InvoiceController::class, 'cancel'])->middleware('permission:edit.invoices');
+    });
+
+    // =================== PAYMENT MANAGEMENT ===================
+    Route::prefix('payments')->group(function () {
+        Route::get('/', [PaymentController::class, 'index'])->middleware('permission:view.payments');
+        Route::post('/', [PaymentController::class, 'store'])->middleware('permission:create.payments');
+        Route::get('statistics', [PaymentController::class, 'statistics'])->middleware('permission:view.payments');
+        Route::get('{id}', [PaymentController::class, 'show'])->middleware('permission:view.payments');
+        Route::delete('{id}', [PaymentController::class, 'destroy'])->middleware('permission:delete.payments');
+    });
+
+    // =================== ACCOUNTS (AR/AP) MANAGEMENT ===================
+    Route::prefix('accounts')->group(function () {
+        Route::get('/', [AccountController::class, 'index'])->middleware('permission:view.accounts');
+        Route::get('summary', [AccountController::class, 'summary'])->middleware('permission:view.accounts');
+        Route::get('aging', [AccountController::class, 'aging'])->middleware('permission:view.accounts');
+        Route::post('check-overdue', [AccountController::class, 'checkOverdue'])->middleware('permission:edit.accounts');
+        Route::get('{id}', [AccountController::class, 'show'])->middleware('permission:view.accounts');
     });
 });
 

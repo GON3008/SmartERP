@@ -27,7 +27,7 @@ class OrderController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $filters = $request->only(['search', 'status', 'customer_id', 'form_date', 'to_date', 'sort_by', 'sort_order', 'per_page']);
+        $filters = $request->only(['search', 'status', 'customer_id', 'from_date', 'to_date', 'sort_by', 'sort_order', 'per_page', 'without_invoice']);
         $orders = $this->orderService->getAllOrders($filters);
 
         return response()->json($orders);

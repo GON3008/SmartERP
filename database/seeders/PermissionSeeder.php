@@ -16,7 +16,8 @@ class PermissionSeeder extends Seeder
     {
         $modules = ['users', 'roles', 'permissions', 'employees', 'departments', 'positions',
                     'attendances', 'salaries', 'customers', 'products', 'orders', 'warehouses',
-                    'inventories', 'stock', 'production', 'reports'];
+                    'inventories', 'stock', 'production', 'reports',
+                    'suppliers', 'purchase-orders', 'invoices', 'payments', 'accounts'];
 
         $actions = ['view', 'create', 'edit', 'delete'];
 
@@ -39,6 +40,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'export.reports', 'description' => 'Export reports'],
             ['name' => 'approve.orders', 'description' => 'Approve orders'],
             ['name' => 'approve.production', 'description' => 'Approve production orders'],
+            ['name' => 'approve.purchase-orders', 'description' => 'Approve purchase orders'],
         ];
 
         foreach (array_merge($permissions, $specialPermissions) as $permission) {

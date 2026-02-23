@@ -33,6 +33,11 @@ class OrderService
             $query->where('status', $filters['status']);
         }
 
+        // Exclude orders that already have an invoice
+        if (!empty($filters['without_invoice'])) {
+            $query->whereDoesntHave('invoice');
+        }
+
         // Filter by customer
         if (!empty($filters['customer_id'])) {
             $query->where('customer_id', $filters['customer_id']);

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Models\Customer;
 use App\Models\OrderItem;
+use App\Models\Invoice;
 
 class Order extends Model
 {
@@ -26,6 +27,11 @@ class Order extends Model
     public function items ()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function invoice()
+    {
+        return $this->hasOne(Invoice::class, 'order_id');
     }
 }
 
